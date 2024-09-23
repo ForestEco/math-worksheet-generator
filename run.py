@@ -10,16 +10,19 @@ from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from functools import reduce
 from typing import List, Tuple
+import tkinter as tk
+from tkinter import filedialog, simpledialog
 
 QuestionInfo = Tuple[int, str, int, int]
 
 
 class MathWorksheetGenerator:
     """class for generating math worksheet of specified size and main_type"""
-    def __init__(self, type_: str, max_number: int, question_count: int):
+    def __init__(self, type_: str, max_number: int, question_count: int, background_image: str = None):
         self.main_type = type_
         self.max_number = max_number
         self.question_count = question_count
+        self.background_image = background_image
         self.pdf = FPDF()
 
         self.small_font_size = 10
@@ -56,8 +59,8 @@ class MathWorksheetGenerator:
         To keep it simple, number is generated randomly within the range of 0 to 100
         :return:  list of value1, main_type, value2, and answer for the generated question
         """
-        num_1 = random.randint(0, self.max_number)
-        num_2 = random.randint(0, self.max_number)
+        num_1 = random.randint(10, self.max_number)  # Ensure two-digit numbers
+        num_2 = random.randint(10, self.max_number)  # Ensure two-digit numbers
         if self.main_type == 'mix':
             current_type = random.choice(['+', '-', 'x', '/'])
         else:
@@ -100,6 +103,8 @@ class MathWorksheetGenerator:
         total_pages = len(problems_per_page)
         for page in range(total_pages):
             self.pdf.add_page(orientation='L')
+            if self.background_image:
+                self.pdf.image(self.background_image, x=0, y=0, w=self.pdf.w, h=self.pdf.h)
             if problems_per_page[page] < self.num_x_cell:
                 self.print_question_row(data, page * page_area, problems_per_page[page])
             else:
@@ -218,6 +223,8 @@ class MathWorksheetGenerator:
     def make_answer_page(self, data):
         """Print answer sheet"""
         self.pdf.add_page(orientation='L')
+        if self.background_image:
+            self.pdf.image(self.background_image, x=0, y=0, w=self.pdf.w, h=self.pdf.h)
         self.pdf.set_font(self.font_1, size=self.large_font_size)
         self.pdf.cell(self.large_pad_size, self.large_pad_size, txt='Answers', new_x=XPos.LEFT, new_y=YPos.NEXT, align='C')
 
@@ -232,55 +239,41 @@ class MathWorksheetGenerator:
                 self.pdf.ln()
 
 
-def main(type_, size, question_count, filename):
+def main(type_, size, question_count, filename, background_image=None):
     """main function"""
-    new_pdf = MathWorksheetGenerator(type_, size, question_count)
+    new_pdf = MathWorksheetGenerator(type_, size, question_count, background_image)
     seed_question = new_pdf.get_list_of_questions(question_count)
     new_pdf.make_question_page(seed_question)
     new_pdf.make_answer_page(seed_question)
     new_pdf.pdf.output(filename)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='Generate Maths Addition/Subtraction/Multiplication Exercise Worksheet'
-    )
-    parser.add_argument(
-        '--type',
-        default='+',
-        choices=['+', '-', 'x', '/', 'mix'],
-        help='type of calculation: '
-        '+: Addition; '
-        '-: Subtraction; '
-        'x: Multiplication; '
-        '/: Division; '
-        'mix: Mixed; '
-        '(default: +)',
-    )
-    parser.add_argument(
-        '--digits',
-        default='2',
-        choices=['1', '2', '3'],
-        help='range of numbers: 1: 0-9, 2: 0-99, 3: 0-999' '(default: 2 -> 0-99)',
-    )
-    parser.add_argument(
-        '-q',
-        '--question_count',
-        type=int,
-        default='80',  # Must be a multiple of 40
-        help='total number of questions' '(default: 80)',
-    )
-    parser.add_argument('--output', metavar='filename.pdf', default='worksheet.pdf',
-                        help='Output file to the given filename '
-                             '(default: worksheet.pdf)')
-    args = parser.parse_args()
+def get_user_input():
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+
+    type_ = simpledialog.askstring("Input", "Enter the type of calculation (e.g., x for multiplication):",
+                                   parent=root, initialvalue='x')
+    digits = simpledialog.askstring("Input", "Enter the number of digits (1, 2, or 3):",
+                                    parent=root, initialvalue='2')
+    question_count = simpledialog.askinteger("Input", "Enter the number of questions:",
+                                             parent=root, initialvalue=80)
+    filename = filedialog.asksaveasfilename(title="Save as", defaultextension=".pdf",
+                                            filetypes=[("PDF files", "*.pdf")])
+    background_image = filedialog.askopenfilename(title="Select background image",
+                                                  filetypes=[("Image files", "*.png;*.jpg;*.jpeg")])
 
     # how many places, 1:0-9, 2:0-99, 3:0-999
-    if args.digits == "1":
+    if digits == "1":
         size_ = 9
-    elif args.digits == "3":
+    elif digits == "3":
         size_ = 999
     else:
         size_ = 99
 
-    main(args.type, size_, args.question_count, args.output)
+    return type_, size_, question_count, filename, background_image
+
+
+if __name__ == "__main__":
+    type_, size_, question_count, filename, background_image = get_user_input()
+    main(type_, size_, question_count, filename, background_image)
