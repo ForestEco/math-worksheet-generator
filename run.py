@@ -12,6 +12,7 @@ from functools import reduce
 from typing import List, Tuple
 import tkinter as tk
 from tkinter import filedialog, simpledialog
+from PIL import Image, ImageOps, ImageChops
 
 QuestionInfo = Tuple[int, str, int, int]
 
@@ -239,6 +240,27 @@ class MathWorksheetGenerator:
                 self.pdf.ln()
 
 
+def preprocess_image(image_path, max_size=(800, 600), margin=50, alpha=1.0):
+    """Rescale the image, add a margin, and control transparency before converting to RGB mode."""
+    img = Image.open(image_path).convert("RGBA")
+
+    # Resize the image to fit within the specified max_size while maintaining aspect ratio
+    img.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+    # Create a white background with the specified margin
+    background_size = (img.size[0] + 2 * margin, img.size[1] + 2 * margin)
+    background = Image.new('RGBA', background_size, (255, 255, 255, 255))
+
+    # Adjust transparency
+    img = Image.blend(img, Image.new('RGBA', img.size, (255, 255, 255, 0)), alpha)
+
+    # Paste the image onto the white background
+    background.paste(img, (margin, margin), img)
+
+    # Convert to RGB mode to ignore alpha values
+    background = background.convert("RGB")
+
+    return background
 def main(type_, size, question_count, filename, background_image=None):
     """main function"""
     new_pdf = MathWorksheetGenerator(type_, size, question_count, background_image)
@@ -246,7 +268,6 @@ def main(type_, size, question_count, filename, background_image=None):
     new_pdf.make_question_page(seed_question)
     new_pdf.make_answer_page(seed_question)
     new_pdf.pdf.output(filename)
-
 
 def get_user_input():
     root = tk.Tk()
@@ -276,4 +297,10 @@ def get_user_input():
 
 if __name__ == "__main__":
     type_, size_, question_count, filename, background_image = get_user_input()
+
+    if background_image:
+        processed_image = preprocess_image(background_image, max_size=(800, 600), margin=200, alpha=0.7)
+        processed_image.save("processed_background.png")
+        background_image = "processed_background.png"
+
     main(type_, size_, question_count, filename, background_image)
